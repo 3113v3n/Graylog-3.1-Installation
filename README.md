@@ -1,4 +1,4 @@
-# Bash Scripts
+# Graylog Scripts
 _This Repository contains scripts to help in **Automation** of graylog-3.1 installation
 
 

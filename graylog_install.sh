@@ -1,24 +1,24 @@
 #!/bin/bash
 ######################################################################################################
 ### Author: Sidney Omondi
-### Version: v1.1.0
-### Date: 2021-1-2
+### Version: v2.0.0
+### Date: 2021-03-08
 ### Description: It automates the installation and Uninstall process of graylog version 3.1 and 3.3
 ### use debian version 9 for graylog 3.1 and version 10 for graylog 3.3
 ###
 ### Usage: ./graylog_install.sh -i <Debian_Version>
 ######################################################################################################
-
+source $(dirname $0)/lib/function-library.sh
 graylog_port="9000"
 graylog_ip="127.0.0.1"
 config_file_path="/etc/graylog/server/server.conf"
 
 
 function main(){
-
+initialize_colors
 if [[ $EUID -eq 0 ]]
 then
- u=false
+ uinstall_bool=false
  update=false
  animate_banner
  check $@
@@ -40,67 +40,35 @@ function check(){
 	   usage
 	  else
       echo -e "${G}[+] *_____________________________Starting your installation___________________________________*${RESET}"
-        checkTerminalArg $deb_version  startInstall
+        checkTerminalArg $deb_version  startInstall usage
 
 	  fi
      ;;
      u)
-     u=true
+     uinstall_bool=true #boolean_to_check for unistall
      deb_version="$OPTARG"
      #check if Argument passed is a number
-     checkTerminalArg $deb_version unInstall
+     checkTerminalArg $deb_version unInstall usage
      ;;
      r)
      reinstall=true
      echo "[-] You chose to reinstall Graylog "; deb_version="$OPTARG"
-     checkTerminalArg $deb_version unInstall && startInstall
+     checkTerminalArg $deb_version unInstall usage && startInstall
      ;;
        # commented out to allow configuration of ssl_certificate
         #c)
       # update=true
       # echo -e "${G}[+] Updating Graylog Config File${RESET}";
       # changePublic_Ip;;
-     *) usage; exit 1
+     ?) usage; exit 1
      ;;
      esac
   done
   shift $(( OPTIND -1 ))
   #check if user has passed necessary arguments
-testArguments
+testArguments  $uinstall_bool $update usage $deb_version
 }
-testArguments(){
-  if [[ -z "${deb_version}" &&  "$u" == false && "$update" == false ]]
-   then
-    usage
-  #elif [[ "$graylog_ip" == "127.0.0.1" && "$graylog_port" == "9000" && "$u" == false && "$update" == false ]]
-  #then
-  #instructions
- fi
-}
-
-checkTerminalArg(){
-  if [[ ! "$1" =~ ^[[:digit:]]+$ ]]; then #checks if value starts and ends with a digit and also works for double digits
-    #statements
-    echo -e "                   ${R}[!] VALUE of ${1},PASSED IS NOT A NUMBER${RESET}"
-    usage
-    exit 1
-  else
-    if [[ "$1" -lt 9 || "$1" -gt 10 ]]
-    then
-    echo -e "                 ${R} [!] INVALID DEBIAN VERSION of ${1}, SUPPLIED ${RESET}"
-    usage
-    exit 1
-   fi
-   $2
-  fi
-}
-  #REPO=4.0
- if [[ "$deb_version" -eq 9 ]]
- then
-  REPO=3.1
- else
-  REPO=3.3
- fi
+determine_graylog_version $deb_version
 
 
 function usage(){
@@ -116,7 +84,6 @@ OPTIONS:
     -i    New Installation of GRAYLOG
     -r    Perform fresh Installation incase of a PreExisting INSTALLATION
     -u    To uninstall the program from your system
-    -c    Configure public IP and Port of  Existing Installation
 
 EXAMPLE:
 =========
@@ -163,24 +130,7 @@ function installMongo(){
  sudo systemctl restart mongod.service
 
  local response="$?"
- if [[ $response -eq 0 ]]
- then
-     echo
-     sudo systemctl --type=service --state=active | grep mongod
-     echo
-     echo -e "${G}MongDB installed and Started successfully${RESET}"
- else
-     echo -e "${R}An error occured while installing Mongo DB
-
-     Script is EXITING NOW !!!
-     ${RESET}"
-     #uninstall installed packages
-     unInstall
-     exit 1
-
- fi
-
-
+ check_for_errors $response mongod "Mongo DB" unInstall
 
  }
 
@@ -212,28 +162,14 @@ EOT
  sudo systemctl restart elasticsearch.service
 
  local response="$?"
- if [[ $response -eq 0 ]]
- then
-    echo
-    sudo systemctl --type=service --state=active | grep elasticsearch
-    echo
-    echo -e "${G}[+] ElasticSearch installed and Started successfully${RESET}"
- else
- echo -e "${R}[!] An error occured while installing elasticsearch
-
- Script is EXITING NOW !!!
- ${RESET}"
- #uninstall installed packages
- unInstall
- exit 1
- fi
+  check_for_errors $response elasticsearch "ElasticSearch" unInstall
 
  }
 
   ##### GRAYLOG #######
  ##################
  function installGraylog(){
-
+ REPO=$(determine_graylog_version $deb_version)
 
 
   wget https://packages.graylog2.org/repo/packages/graylog-${REPO}-repository_latest.deb ;
@@ -316,23 +252,9 @@ sed -i "/^password_secret =/ s/password_secret =/password_secret =$PASSWORD/ ; /
 	 sudo systemctl enable graylog-server.service
 	 sudo systemctl start graylog-server.service
 	  local response="$?"
- 	 if [[ $response -eq 0 ]]
-	   then
-	   echo
-           sudo systemctl --type=service --state=active | grep graylog
-           sleep 0.4
-           echo -e "${G}Graylog-server installed and Started successfully${RESET}"
-           echo -e "You can access the page from the link below"
-	   echo -e "${blue_color}http://${graylog_ip}:${graylog_port}/${RESET}"
- 	else
-          echo -e "${R}An error occured while installing Graylog Server
 
-          Script is EXITING NOW !!!
-          ${RESET}"
-          #uninstall installed packages
-          unInstall
-          exit 1
- 	fi
+    check_for_errors $response graylog "Graylog Server" unInstall
+
 	 rm graylog-${REPO}-repository_latest.deb
  }
 unInstall(){
@@ -347,7 +269,7 @@ unInstall(){
   }
   #Redirect errors to stderr
   #--quiet tag
-  
+
   stopServices 2>/dev/null
 	#uninstall mongodb
 	removeMongo 2>/dev/null
@@ -435,161 +357,6 @@ echo -e "
 #EOF
 
 }
-# function not called , script implemented on graylog_nginx_install.sh
-function changePublic_Ip(){
-# change the public IP
-local config_file_path="/etc/graylog/server/server.conf"
-while true; do
-   read -p "Did you provide an IP Address during initial Installation? [ Y / N ] " choice
-    case $choice in
-        [Nn]* )
-        read -p "Enter your Public IP address:  " IP_ADDRESS
-      	read -p "Enter your preferred  Port : " PORT
-	sleep 0.4
-	echo -e "Your new address and port are : ===>${Y}$IP_ADDRESS:$PORT${RESET}"
-sed -i "/^http_bind_address = 127.0.0.1:9000/ s/http_bind_address = 127.0.0.1:9000/http_bind_address = ${IP_ADDRESS}:${PORT}/ ; /^http_publish_uri = http:\/\/127.0.0.1:9000\// s/http_publish_uri = http:\/\/127.0.0.1:9000\/http_publish_uri = http:\/\/${IP_ADDRESS}:${POR}T\// " "$config_file_path"
-echo
-updateConfirmation
-break
-;;
-        [Yy]* )
-        read -p "Enter your previous Public IP: " ORIGINAL_IP
-	      read -p "Enter your previous Port: " ORIGINAL_PORT
-  sleep 0.4
-	echo -e "Your initial address and port are : ===>${Y}$ORIGINAL_IP:$ORIGINAL_PORT${RESET}"
-	echo
-	read -p "Enter your NEW Public IP address:  " NEW_IP_ADDRESS
-	read -p "Enter your preferred connection port : " NEW_PORT
-  sleep 0.4
-	echo -e "Your new address and port are : ===> ${Y}$ORIGINAL_IP:$ORIGINAL_PORT${RESET}"
-
-sed -i "/^http_bind_address = ${ORIGINAL_IP}:${ORIGINAL_PORT}/ s/http_bind_address = ${ORIGINAL_IP}:${ORIGINAL_PORT}/http_bind_address = ${NEW_IP_ADDRESS}:${NEW_PORT}/ ; /^http_publish_uri = http:\/\/${ORIGINAL_IP}:${ORIGINAL_PORT}\// s/http_publish_uri = http:\/\/${ORIGINAL_IP}:${ORIGINAL_PORT}\//http_publish_uri = http:\/\/${NEW_IP_ADDRESS}:${NEW_PORT}\// " "$config_file_path"
-echo
-updateConfirmation
-break
-;;
-        * ) echo -e "Please answer ${BGreen}YES${normal_color} or ${BGreen}NO${normal_color}.";;
-    esac
-done
-
-
-}
-updateConfirmation(){
-sudo systemctl daemon-reload
-sudo systemctl enable graylog-server.service
-sudo systemctl start graylog-server.service
-sudo systemctl --type=service --state=active | grep graylog
-sleep 0.4
-echo -e "${green_color}Graylog Configurations Successfully Updates${RESET}"
-echo
-}
-
-
-function initialize_colors() {
-	normal_color="\e[1;0m"
-	green_color="\033[1;32m"
-	blue_color="\033[1;34m"
-	cyan_color="\033[1;36m"
-	brown_color="\033[0;33m"
-	yellow_color="\033[1;33m"
-	pink_color="\033[1;35m"
-	white_color="\e[1;97m"
-	clear_screen="\033c"
-  ### Regular Colors
-
-  G='\033[0;32m' #Green Color Title
-  R='\033[1;31m' #Red Color
-  W='\033[0;37m' # White Color
-  B='\033[0;34m' # Blue Color
-  C='\033[0;36m' # Cyan Color
-  M='\033[0;35m' # Purple
-  LG='\033[0;37m'
-  O='\033[0;33m'
-  Y='\033[1;33m'  # Yellow
-  RESET='\033[0m'
-
-# Bold
-BBlack='\033[1;30m'       # Black
-BRed='\033[1;31m'         # Red
-BGreen='\033[1;32m'       # Green
-BYellow='\033[1;33m'      # Yellow
-BBlue='\033[1;34m'        # Blue
-BPurple='\033[1;35m'      # Purple
-BCyan='\033[1;36m'        # Cyan
-BWhite='\033[1;37m'       # White
-
-# colors to use with read cmd
-read_normal_color=$'\e[1;0m'
-read_green_color=$'\033[1;32m'
-read_blue_color=$'\033[1;34m'
-read_cyan_color=$'\033[1;36m'
-read_brown_color=$'\033[0;33m'
-
-}
-
-function hearts_pirates(){
-	case $1 in
-		1)banner_color=${R}
-
-		 ;;
-		2) banner_color=${G}
-
-		;;
-		3) banner_color=${BBlue}
-
-		;;
-		4) banner_color=${brown_color}
-
-		;;
-		5) banner_color=${W}
-
-		;;
-
-	esac
-	banner
-
-sleep 0.4
-}
-banner(){
-	echo -e ${banner_color}"                                 ;okO0KKKKKK0Oko;   "${RESET}
-	echo -e ${banner_color}"                                .oolc;,dMMd,;cloo.  "${RESET}
-	echo -e ${banner_color}"                         .lx.      .:lxXMMXxl:.      .oc.   "${RESET}
-	echo -e ${banner_color}"                        oWWo   .l0WMWK0OkkO0KWMW0l.   dWWo   "${RESET}
-	echo -e ${banner_color}"                      ,XMk. .oXMXd:.          .,oKMXo. .xMK.  "${RESET}
-	echo -e ${banner_color}"                     lWMX''dWWk,...            ...'kWWk:;XMW:  "${RESET}
-	echo -e ${banner_color}"                    dMWONMMMK,lKMMMW0:      ,0WMMMKo;KMMMNOWMc  "${RESET}
-	echo -e ${banner_color}"                   :MW, :MM0.KMMMMMMMMO    oMMMMMMMMN,0MM: :MW'  "${RESET}
-	echo -e ${banner_color}"                   XMl  OMX.;MMMMMMMMMW.   WMMMMMMMMM: KMK  xMx   "${RESET}
-	echo -e ${banner_color}"                   ll  .MMl  OMMMMMMMWc    lWMMMMMMMO  ;MM'  l;  "${RESET}
-	echo -e ${banner_color}"                      :MM,   ,kXNNKd.  ,,  .dKNNXk,    XM:    "${RESET}
-	echo -e ${banner_color}"                       :MMc            .00.             KM:   "${RESET}
-	echo -e ${banner_color}"                   dk. .MMMWXK000OOOOOOOO00000KKKKXXXNWMMM' .Oo   "${RESET}
-	echo -e ${banner_color}"                  OMO  OMN'.xMk,,lM0,,;NN;,,0M0,,kMx..XM0  KMd    "${RESET}
-	echo -e ${banner_color}"                   .WMo oMM0.lMl  .Mx   XX   kMx  lMl OMMl xMX. "${RESET}
-	echo -e ${banner_color}"                    ,WMWMMMMKOMl  .Mx   XX   OMk  lMOKMMMMWMN.  "${RESET}
-	echo -e ${banner_color}"                     .XMN'.lNMMO  'Mk   XX   0MO  kMMNl.'WMK.  "${RESET}
-	echo -e ${banner_color}"                       dMX:  lKMNxOM0   XX   KMXdXMKc  cNWd   "${RESET}
-	echo -e ${banner_color}"                        '0M0.  .ckNMMK00WW0KKWMNOc.  .0M0'    "${RESET}
-	echo -e ${banner_color}"                          .,       .,coKMMKoc,.       ,.    "${RESET}
-	echo -e ${banner_color}"                                .OOkdocxMMxcodxkx.    "${RESET}
-	echo -e ${banner_color}"                                 .;ldkO000OOkdl;.  "${RESET}
-}
-animate_banner(){
-
-	#echo -e "\033[6B"
-
-	for i in $(seq 1 3); do
-		echo -e ${clear_screen}
-
-		if [ "$i" -le 3 ]; then
-			color_index=${i}
-		else
-			color_index=$(( i-4 ))
-		fi
-		hearts_pirates "$color_index"
-	done
-
-}
 
 
 function startInstall(){
@@ -598,5 +365,5 @@ function startInstall(){
  installElasticSearch
  installGraylog
 }
-initialize_colors
+
 main $@
