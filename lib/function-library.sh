@@ -6,6 +6,9 @@
 # Description: bash function library
 # Usage: source $(dirname $0)/lib/function-library.sh
 #########################################################
+
+
+#Test for the arguments supplied to the terminal
 testArguments(){
   deb_version="$4"
   check_bool="$1"
@@ -18,14 +21,18 @@ echo $@
   fi
 
 }
+
+
+#Test that values supplied to tags on terminal [ -u -r -i ] are digits
 checkTerminalArg(){
   local deb_version=$1
   local _function=$2
   local script_usage=$3
-  if [[ ! "$1" =~ ^[[:digit:]]+$ ]]; then #checks if value starts and ends with a digit and also works for double digits
+  if [[ ! "$1" =~ ^[[:digit:]]+$ ]]; then
+  #checks if value starts and ends with a digit and also works for double digits
     #statements
     echo -e "                   ${R}[!] VALUE of ${1},PASSED IS NOT A NUMBER${RESET}"
-    $script_usage
+    $script_usage #Output usage of script
     exit 1
   else
     if [[ "$1" -lt 9 || "$1" -gt 10 ]]
@@ -38,8 +45,13 @@ checkTerminalArg(){
   fi
 }
 
+
 #determine which graylog version to install
 determine_graylog_version(){
+  if [[ $# -lt 1 ]];then
+    exit 1
+  fi
+
   if [[ "$1" -eq 9 ]]
   then
    echo 3.1
@@ -57,6 +69,8 @@ sleep 0.4
 echo -e "${green_color}Graylog Configurations Successfully Updates${RESET}"
 echo
 }
+
+
 #check for Installation Errors
 check_for_errors(){
   if [[ "$#" -ne 3 ]]
@@ -135,6 +149,7 @@ read_brown_color=$'\033[0;33m'
 
 }
 
+#Pass colors to our terminal banner
 function hearts_pirates(){
 	case $1 in
 		1)banner_color=${R}
@@ -158,6 +173,8 @@ function hearts_pirates(){
 
 sleep 0.4
 }
+
+
 banner(){
 	echo -e ${banner_color}"                                 ;okO0KKKKKK0Oko;   "${RESET}
 	echo -e ${banner_color}"                                .oolc;,dMMd,;cloo.  "${RESET}
@@ -182,6 +199,9 @@ banner(){
 	echo -e ${banner_color}"                                .OOkdocxMMxcodxkx.    "${RESET}
 	echo -e ${banner_color}"                                 .;ldkO000OOkdl;.  "${RESET}
 }
+
+
+#Provide Animation for the banner
 animate_banner(){
 
 	#echo -e "\033[6B"
@@ -199,6 +219,8 @@ animate_banner(){
 
 }
 
+
+#Perform Changes on Graylog Config Files to update Public IP and Port
 function changePublic_Ip(){
 # change the public IP
 local config_file_path="/etc/graylog/server/server.conf"
@@ -235,8 +257,10 @@ break
     esac
 done
 
-
 }
+
+
+
 check_yes_no(){
   # Input validation.
 if [[ $# -ne 1 ]]; then
@@ -253,3 +277,68 @@ echo "Neither yes or no, exiting."
 exit 2
 fi
 }
+
+
+#Update GrayLog Configs
+ setGraylogConfig(){
+   local graylog_port="$1"
+   local graylog_ip="$2"
+   local config_file_path="$3"
+  #generates 64 character password
+ PASSWORD=$( pwgen -N 1 -s 96 )
+
+
+ echo
+#Ensure username and Password are provided
+ while true; do
+   read -p "[-] Enter Username for graylog WebGUI login?: " USERNAME
+
+   stty -echo #turns off echo on screen so that password is hidden
+   read -p "[-] What will be ${USERNAME}'s password?  ==> " PASS
+   echo
+   stty echo
+   if [[ -z "$USERNAME" && -z "$PASS" ]]
+   then
+     echo
+     echo
+     echo -e "${BRed}USERNAME${RESET} or ${BRed}Password${RESET} cant be blank "
+     echo
+   elif [[ -z "$USERNAME" ]]
+   then
+     echo
+     echo
+     echo -e "${BRed}USERNAME${RESET}  cant be blank "
+     echo
+   elif [[ -z "$PASS" ]]
+   then
+     echo
+     echo
+     echo -e " ${BRed}Password${RESET} cant be blank "
+     echo
+   else
+     break
+
+   fi
+ done
+
+# Convert password provided into hash password
+
+hash_pass=$(echo -n ${PASS} | sha256sum  | awk -F' ' '{print $1}') || $(echo -n ${PASS} | shasum -a 256 | awk -F' ' '{print $1}')
+
+
+ #read -p "[-] Enter your ${read_green_color}Public Ip Address${read_normal_color} [Default: 127.0.0.1] " PUB_IP
+ read -p "[-] Enter your preferred ${read_green_color}PORT${read_normal_color} to run Graylog [Default: 9000 ] " DEF_PORT
+
+  if [[ -n "$DEF_PORT" ]]
+  then
+    graylog_port=$DEF_PORT
+  fi
+
+ sleep 0.2
+ echo
+ echo -e " Your username is ${Y}$USERNAME${RESET} and hash is ==> ${Y}${hash_pass}${RESET}"
+ echo -e "Your Ip and Port is ${Y}${graylog_ip}:${graylog_port}${RESET}"
+##EDITING THE CONFIGURATION FILE
+sed -i "/^password_secret =/ s/password_secret =/password_secret =$PASSWORD/ ; /^#root_username =/ s/#root_username = admin/root_username =$USERNAME/ ; /^root_password_sha2 =/ s/root_password_sha2 =/root_password_sha2 =$hash_pass/ ; /^#http_bind_address = 127.0.0.1:9000/ s/#http_bind_address = 127.0.0.1:9000/http_bind_address = ${graylog_ip}:${graylog_port}/" "$config_file_path"
+
+ }

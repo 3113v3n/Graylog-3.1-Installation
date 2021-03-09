@@ -1,10 +1,11 @@
 #!/bin/bash
 ######################################################################################################
 ### Author: Sidney Omondi
-### Version: v2.0.0
+### Version: v2.1.0
 ### Date: 2021-03-08
-### Description: It automates the installation and Uninstall process of graylog version 3.1 and 3.3
-### use debian version 9 for graylog 3.1 and version 10 for graylog 3.3
+### Description:- It automates the installation and Uninstall process of graylog version 3.1 and 3.3
+###               use debian version 9 for graylog 3.1 and version 10 for graylog 3.3
+###             - It has been implemented using function library for easier read of code
 ###
 ### Usage: ./graylog_install.sh -i <Debian_Version>
 ######################################################################################################
@@ -185,67 +186,8 @@ EOT
  ## EDIT CONF FILE #######
  ########################
 
-function graylogConfig(){
-  #generates 64 character password
- PASSWORD=$( pwgen -N 1 -s 96 )
+setGraylogConfig graylog_port graylog_ip config_file_path
 
- #path to graylog config file
-
- echo
-#Ensure username and Password are provided
- while true; do
-   read -p "[-] Enter Username for graylog WebGUI login?: " USERNAME
-
-   stty -echo #turns off echo on screen so that password is hidden
-   read -p "[-] What will be ${USERNAME}'s password?  ==> " PASS
-   echo
-   stty echo
-   if [[ -z "$USERNAME" && -z "$PASS" ]]
-   then
-     echo
-     echo
-     echo -e "${BRed}USERNAME${RESET} or ${BRed}Password${RESET} cant be blank "
-     echo
-   elif [[ -z "$USERNAME" ]]
-   then
-     echo
-     echo
-     echo -e "${BRed}USERNAME${RESET}  cant be blank "
-     echo
-   elif [[ -z "$PASS" ]]
-   then
-     echo
-     echo
-     echo -e " ${BRed}Password${RESET} cant be blank "
-     echo
-   else
-     break
-
-   fi
- done
-
-# Convert password provided into hash password
-
-hash_pass=$(echo -n ${PASS} | sha256sum  | awk -F' ' '{print $1}') || $(echo -n ${PASS} | shasum -a 256 | awk -F' ' '{print $1}')
-
-
- #read -p "[-] Enter your ${read_green_color}Public Ip Address${read_normal_color} [Default: 127.0.0.1] " PUB_IP
- read -p "[-] Enter your preferred ${read_green_color}PORT${read_normal_color} to run Graylog [Default: 9000 ] " DEF_PORT
-
-  if [[ -n "$DEF_PORT" ]]
-  then
-    graylog_port=$DEF_PORT
-  fi
-
- sleep 0.2
- echo
- echo -e " Your username is ${Y}$USERNAME${RESET} and hash is ==> ${Y}${hash_pass}${RESET}"
- echo -e "Your Ip and Port is ${Y}${graylog_ip}:${graylog_port}${RESET}"
-##EDITING THE CONFIGURATION FILE
-sed -i "/^password_secret =/ s/password_secret =/password_secret =$PASSWORD/ ; /^#root_username =/ s/#root_username = admin/root_username =$USERNAME/ ; /^root_password_sha2 =/ s/root_password_sha2 =/root_password_sha2 =$hash_pass/ ; /^#http_bind_address = 127.0.0.1:9000/ s/#http_bind_address = 127.0.0.1:9000/http_bind_address = ${graylog_ip}:${graylog_port}/" "$config_file_path"
-
-
- }
  function verifyGraylog(){
  ### verify its running
 	 sudo systemctl daemon-reload
@@ -336,28 +278,6 @@ echo -e "${Y}____________________________REMOVING GRAYLOG SERVER________________
 	 sudo dpkg -P graylog-${REPO}-repository #purge the repo from system to avoid conflicts
   fi
 }
-function instructions(){
-#Instruct user what to update in case address and port not provided
-
-#cat << EOF
-
-echo -e "
-                      ${R}_______________________________________${RESET}${BYellow}NOTE${RESET}${R}__________________________________________________ ${RESET}
-                     ${R}|${RESET}                                                                                            ${R}|${RESET}
-                     ${R}|${RESET}                ${blue_color}INCASE YOU NEED TO CHANGE PUBLIC IP AND PORT${normal_color}                                ${R}|${RESET}
-                     ${R}|${RESET}                                                                                            ${R}|${RESET}
-                     ${R}|${RESET}                 RUN:                                                                       ${R}|${RESET}
-                     ${R}|${RESET}                                                                                            ${R}|${RESET}
-                     ${R}|${RESET}                     ${O}[+] ./$(basename $0) -c${RESET}                                         ${R}|${RESET}
-                     ${R}|${RESET}                                                                                            ${R}|${RESET}
-                     ${R}|${RESET}                     to reconfigure your IP and P                                           ${R}|${RESET}
-                     ${R}|${RESET}                                                                                            ${R}|${RESET}
-                     ${R}|____________________________________________________________________________________________|${RESET}
-                     "
-#EOF
-
-}
-
 
 function startInstall(){
  prerequisite
