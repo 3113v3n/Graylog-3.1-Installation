@@ -95,7 +95,7 @@ ${O}[-] source ./$(basename $0).sh -d testdomain.co.ke -e info@testmail.com${RES
 "
 }
 installNginX(){
-  #Ensure user inputs Public IP and PORT
+  #Ensure user inputs Public IP and PORT 
   while true; do
 
   read -p "Enter the port you entered during ${read_blue_color}INSTALLATION OF GRAYLOG${read_normal_color} using script [ Default: 9000 ]: " DEFAULT_PORT
