@@ -258,25 +258,31 @@ break
 done
 
 }
-
-
-
 check_yes_no(){
   # Input validation.
 if [[ $# -ne 1 ]]; then
 echo "Need exactly one argument, exiting."
 exit 1 # No validation done, exit script.
 fi
-# Return 0 for yes, 1 for no, exit 2 for neither.
-if [[ ${1,,} = 'y' || ${1,,} = 'yes' ]]; then
-return 0
-elif [[ ${1,,} = 'n' || ${1,,} = 'no' ]]; then
-return 1
-else
-echo "Neither yes or no, exiting."
-exit 2
-fi
+  local question=$1
+  while true; do
+  read -p "$question " answer #Pass the Question To ask the user
+  case ${answer,,} in
+    n | no )
+    return 1
+    break
+    ;;
+    y | yes )
+    return 0
+    break
+    ;;
+    *) echo "Please Answer Yes or No"
+      echo
+    ;;
+  esac
+done
 }
+
 
 
 #Update GrayLog Configs
@@ -341,4 +347,34 @@ hash_pass=$(echo -n ${PASS} | sha256sum  | awk -F' ' '{print $1}') || $(echo -n 
 ##EDITING THE CONFIGURATION FILE
 sed -i "/^password_secret =/ s/password_secret =/password_secret =$PASSWORD/ ; /^#root_username =/ s/#root_username = admin/root_username =$USERNAME/ ; /^root_password_sha2 =/ s/root_password_sha2 =/root_password_sha2 =$hash_pass/ ; /^#http_bind_address = 127.0.0.1:9000/ s/#http_bind_address = 127.0.0.1:9000/http_bind_address = ${graylog_ip}:${graylog_port}/" "$config_file_path"
 
+ }
+
+ ###################################################
+ ################# NGINX ############################
+ ##################################################
+ test_nginx_Arguments(){
+   local domain=$1
+   local account_mail=$2
+   local installation_function=$3
+   local usage=$4
+   
+   if [[ -z "$domain" && -z "$account_mail"  ]] # ||  ||
+   then
+   echo -e "${R} [!] Error: Missing arguments: < Domain > < Email >${RESET}"
+   echo
+   $usage; exit 1
+  elif [[ -z "$domain" ]]
+  then
+    echo -e "${R} [!] Error: Missing arguments: < Domain >${RESET}"
+    echo
+    $usage; exit 1
+  elif [[ -z "$account_mail" ]]
+  then
+    echo -e "${R} [!] Error: Missing arguments: < Email >${RESET}"
+    echo
+    $usage; exit 1
+   else
+    #do fullInstallation
+    $installation_function
+   fi
  }
