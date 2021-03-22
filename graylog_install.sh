@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -e
 ######################################################################################################
 ### Author: Sidney Omondi
 ### Version: v2.1.0
@@ -13,7 +13,7 @@ source $(dirname $0)/lib/function-library.sh
 graylog_port="9000"
 graylog_ip="127.0.0.1"
 config_file_path="/etc/graylog/server/server.conf"
-
+working_directory=$( dirname "$0" )
 
 function main(){
 initialize_colors
@@ -21,7 +21,6 @@ if [[ $EUID -eq 0 ]]
 then
  uinstall_bool=false
  update=false
- animate_banner
  check $@
 else
 echo -e "${R}[!] You need to run script with ROOT privilages${RESET}"
@@ -30,37 +29,38 @@ fi
 
 function check(){
  local OPTIND opt i
- while getopts ":u:r:i:" opt; do #colon after i indicates an argument
+ while getopts ":u:r:i:hC" opt; do #colon after i indicates an argument
    case $opt in
 
      i)
-      echo "[-] You chose to do a fresh installation "; deb_version="$OPTARG"
-       if [ -z "${deb_version}" ]
-	  then
-	   echo "${R}[!] No Debian Version selected${RESET}"
-	   usage
-	  else
-      echo -e "${G}[+] *_____________________________Starting your installation___________________________________*${RESET}"
-        checkTerminalArg $deb_version  startInstall usage
+        deb_version="$OPTARG"
+         if [ -z "${deb_version}" ]
+      	  then
+      	   echo "${R}[!] No Debian Version selected${RESET}"
+      	   usage
+      	  else
+             animate_banner
+            echo -e "${G}[+] *_____________________________Starting your installation___________________________________*${RESET}"
+              checkTerminalArg $deb_version  startInstall usage
 
-	  fi
+      	 fi
      ;;
      u)
      uinstall_bool=true #boolean_to_check for unistall
      deb_version="$OPTARG"
      #check if Argument passed is a number
+
      checkTerminalArg $deb_version unInstall usage
      ;;
      r)
      reinstall=true
-     echo "[-] You chose to reinstall Graylog "; deb_version="$OPTARG"
+     deb_version="$OPTARG"
      checkTerminalArg $deb_version unInstall usage && startInstall
      ;;
-       # commented out to allow configuration of ssl_certificate
-        #c)
-      # update=true
-      # echo -e "${G}[+] Updating Graylog Config File${RESET}";
-      # changePublic_Ip;;
+     h) usage; exit 0
+     ;;
+     C) PerformCleanUp $working_directory; exit 0
+     ;;
      ?) usage; exit 1
      ;;
      esac
@@ -69,7 +69,9 @@ function check(){
   #check if user has passed necessary arguments
 testArguments  $uinstall_bool $update usage $deb_version
 }
+if [[ -n "$deb_version" ]];then
 determine_graylog_version $deb_version
+fi
 
 
 function usage(){
@@ -85,6 +87,7 @@ OPTIONS:
     -i    New Installation of GRAYLOG
     -r    Perform fresh Installation incase of a PreExisting INSTALLATION
     -u    To uninstall the program from your system
+    -h    help
 
 EXAMPLE:
 =========
@@ -186,8 +189,67 @@ EOT
  ## EDIT CONF FILE #######
  ########################
 
-setGraylogConfig graylog_port graylog_ip config_file_path
+#Update GrayLog Configs
+ setGraylogConfig(){
 
+  #generates 64 character password
+ PASSWORD=$( pwgen -N 1 -s 96 )
+
+
+ echo
+#Ensure username and Password are provided
+ while true; do
+   read -p "[-] Enter Username for graylog WebGUI login?: " USERNAME
+
+   stty -echo #turns off echo on screen so that password is hidden
+   read -p "[-] What will be ${USERNAME}'s password?  ==> " PASS
+   echo
+   stty echo
+   if [[ -z "$USERNAME" && -z "$PASS" ]]
+   then
+     echo
+     echo
+     echo -e "${BRed}USERNAME${RESET} or ${BRed}Password${RESET} cant be blank "
+     echo
+   elif [[ -z "$USERNAME" ]]
+   then
+     echo
+     echo
+     echo -e "${BRed}USERNAME${RESET}  cant be blank "
+     echo
+   elif [[ -z "$PASS" ]]
+   then
+     echo
+     echo
+     echo -e " ${BRed}Password${RESET} cant be blank "
+     echo
+   else
+     break
+
+   fi
+ done
+
+# Convert password provided into hash password
+
+hash_pass=$(echo -n ${PASS} | sha256sum  | awk -F' ' '{print $1}') || $(echo -n ${PASS} | shasum -a 256 | awk -F' ' '{print $1}')
+
+
+ #read -p "[-] Enter your ${read_green_color}Public Ip Address${read_normal_color} [Default: 127.0.0.1] " PUB_IP
+ read -p "[-] Enter your preferred ${read_green_color}PORT${read_normal_color} to run Graylog [Default: 9000 ] " DEF_PORT
+
+  if [[ -n "$DEF_PORT" ]]
+  then
+    graylog_port=$DEF_PORT
+  fi
+
+ sleep 0.2
+ echo
+ echo -e " Your username is ${Y}$USERNAME${RESET} and hash is ==> ${Y}${hash_pass}${RESET}"
+ echo -e "Your Ip and Port is ${Y}${graylog_ip}:${graylog_port}${RESET}"
+##EDITING THE CONFIGURATION FILE
+sed -i "/^password_secret =/ s/password_secret =/password_secret =$PASSWORD/ ; /^#root_username =/ s/#root_username = admin/root_username =$USERNAME/ ; /^root_password_sha2 =/ s/root_password_sha2 =/root_password_sha2 =$hash_pass/ ; /^#http_bind_address = 127.0.0.1:9000/ s/#http_bind_address = 127.0.0.1:9000/http_bind_address = ${graylog_ip}:${graylog_port}/" "$config_file_path"
+
+ }
  function verifyGraylog(){
  ### verify its running
 	 sudo systemctl daemon-reload

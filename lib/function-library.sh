@@ -7,7 +7,6 @@
 # Usage: source $(dirname $0)/lib/function-library.sh
 #########################################################
 
-
 #Test for the arguments supplied to the terminal
 testArguments(){
   deb_version="$4"
@@ -285,79 +284,35 @@ done
 
 
 
-#Update GrayLog Configs
- setGraylogConfig(){
-   local graylog_port="$1"
-   local graylog_ip="$2"
-   local config_file_path="$3"
-  #generates 64 character password
- PASSWORD=$( pwgen -N 1 -s 96 )
-
-
- echo
-#Ensure username and Password are provided
- while true; do
-   read -p "[-] Enter Username for graylog WebGUI login?: " USERNAME
-
-   stty -echo #turns off echo on screen so that password is hidden
-   read -p "[-] What will be ${USERNAME}'s password?  ==> " PASS
-   echo
-   stty echo
-   if [[ -z "$USERNAME" && -z "$PASS" ]]
-   then
-     echo
-     echo
-     echo -e "${BRed}USERNAME${RESET} or ${BRed}Password${RESET} cant be blank "
-     echo
-   elif [[ -z "$USERNAME" ]]
-   then
-     echo
-     echo
-     echo -e "${BRed}USERNAME${RESET}  cant be blank "
-     echo
-   elif [[ -z "$PASS" ]]
-   then
-     echo
-     echo
-     echo -e " ${BRed}Password${RESET} cant be blank "
-     echo
-   else
-     break
-
-   fi
- done
-
-# Convert password provided into hash password
-
-hash_pass=$(echo -n ${PASS} | sha256sum  | awk -F' ' '{print $1}') || $(echo -n ${PASS} | shasum -a 256 | awk -F' ' '{print $1}')
-
-
- #read -p "[-] Enter your ${read_green_color}Public Ip Address${read_normal_color} [Default: 127.0.0.1] " PUB_IP
- read -p "[-] Enter your preferred ${read_green_color}PORT${read_normal_color} to run Graylog [Default: 9000 ] " DEF_PORT
-
-  if [[ -n "$DEF_PORT" ]]
+cleanup_function(){
+#Pass in Directory
+if [[ $1 == "." ]]
+then
+sudo rm -rf $(pwd)
+else
+  sudo rm -rf $1
+fi
+}
+PerformCleanUp(){
+  #function takes in working directory as an argument
+  check_yes_no "Do you want to Clean Up ?"
+  local user_response="$?"
+  if [[ $user_response -eq 0 ]]
   then
-    graylog_port=$DEF_PORT
+  cleanup_function $1
   fi
 
- sleep 0.2
- echo
- echo -e " Your username is ${Y}$USERNAME${RESET} and hash is ==> ${Y}${hash_pass}${RESET}"
- echo -e "Your Ip and Port is ${Y}${graylog_ip}:${graylog_port}${RESET}"
-##EDITING THE CONFIGURATION FILE
-sed -i "/^password_secret =/ s/password_secret =/password_secret =$PASSWORD/ ; /^#root_username =/ s/#root_username = admin/root_username =$USERNAME/ ; /^root_password_sha2 =/ s/root_password_sha2 =/root_password_sha2 =$hash_pass/ ; /^#http_bind_address = 127.0.0.1:9000/ s/#http_bind_address = 127.0.0.1:9000/http_bind_address = ${graylog_ip}:${graylog_port}/" "$config_file_path"
-
- }
-
+}
  ###################################################
  ################# NGINX ############################
  ##################################################
  test_nginx_Arguments(){
+
    local domain=$1
    local account_mail=$2
    local installation_function=$3
    local usage=$4
-   
+
    if [[ -z "$domain" && -z "$account_mail"  ]] # ||  ||
    then
    echo -e "${R} [!] Error: Missing arguments: < Domain > < Email >${RESET}"

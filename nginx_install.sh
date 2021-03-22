@@ -13,7 +13,7 @@ graylog_config_file="/etc/graylog/server/server.conf"
 nginx_conf_file="/etc/nginx/nginx.conf"
 Public_IP=""
 Public_Port=""
-
+working_directory=$( dirname "$0" )
 main(){
 initialize_colors
 #we need to switch to root user
@@ -22,21 +22,30 @@ then
   nonRootUser
 fi
 #Check for File Sourcing
-  if [[ -z "$PS1" ]]; then
-    echo -e "Script needs to be sourced"
-    echo " Example:
-         source $(basename $0) -d <domain> -e <email>
-    "
-    exit 1
-  fi
+#  if [[ -z "$PS1" ]]; then
+#    echo -e "Script needs to be sourced"
+#    echo " Example:
+#         source $(basename $0) -d <domain> -e <email>
+#    "
+#    exit 1
+#  fi
 
 checkTags "$@"
 }
 
 function nonRootUser(){
   echo -e " ${R}[!] SCRIPT NEEDS TO RUN AS ${RESET}${BRed}ROOT${RESET}"
-  echo -e "Moving Script to Your Root directory. Swith to ${BYellow}ROOT USER [/root]${normal_color} and execute script from there"
-  sudo mv $(dirname $0)/$(basename $0) /root/$(basename $0) && echo -e "${green_color}Copying Done !!! ${RESET}"
+  echo -e "Moving Script to Your Root directory. Swith to ${BYellow}ROOT USER [/root/GrayLog_3.1]${normal_color} and execute script from there"
+
+  sleep 1
+  if [[ -d "/root/GrayLog_3.1" ]]
+   then sudo rm -rf "/root/GrayLog_3.1"
+  fi
+   sudo  mkdir /root/GrayLog_3.1
+  #$(dirname $0)/$(basename $0)
+  sudo cp -r * /root/GrayLog_3.1/ && echo -e "${green_color}Copying Done !!! ${RESET}"
+  cd /root/GrayLog_3.1
+
   sudo su
   #echo -e "You need to run the script again"
   #
@@ -44,11 +53,21 @@ function nonRootUser(){
 }
 function checkTags(){
  local OPTIND opt i
- while getopts "d:e:" opt; do
+ while getopts "d:e:huC" opt; do
  case "$opt" in
  d)  domain="$OPTARG" ;;
 
  e)  account_mail="$OPTARG";;
+
+ u) remove_nginX
+   ;;
+C) PerformCleanUp $working_directory
+  ;;
+:) echo "missing argument for option -${OPTARG}"
+  exit 1
+  ;;
+ h) usage
+    exit 0 ;;
 
  ?) usage;exit 1 ;;
  esac
@@ -59,7 +78,7 @@ test_nginx_Arguments $domain $account_mail fullInstallation usage
 
 usage(){
 echo -e "
-Usage: ${O}[-] source ./$(basename $0).sh -d  <YOUR_DOMAIN> -e <ACME_ACCOUNT_MAIL>${RESET}
+Usage: ${O}[-]  ./$(basename $0).sh -d  <YOUR_DOMAIN> -e <ACME_ACCOUNT_MAIL>${RESET}
 PARAMETRES:
 ===========
     YOUR_DOMAIN           testdomain.co.ke
@@ -67,6 +86,7 @@ PARAMETRES:
 
 OPTIONS:
 ========
+    -h    help
     -d    Pass in the Domain of your organization
     -e    Pass in email that will be used to setup your graylog account
 
@@ -107,6 +127,7 @@ installNginX(){
   sudo apt install bash-completion
   if [[ ! -d "acme.sh" ]]
   then
+  cd /
   git clone https://github.com/acmesh-official/acme.sh.git
   fi
 	cd acme.sh
@@ -192,12 +213,19 @@ sudo ln -s /etc/nginx/sites-available/app.conf /etc/nginx/sites-enabled/
 
 #search for Virtual Host Configs
 
-sed -i "/^        #include /etc/nginx/conf.d/*.conf;/ s/        #include /etc/nginx/conf.d/*.conf;/        include /etc/nginx/sites-enabled/app.conf;/" "$nginx_conf_file"
+sed -i "/^        #include /etc/nginx/conf.d/*.conf;/ s/        #include /etc/nginx/conf.d/*.conf;/        include /etc/nginx/sites-enabled/*.conf;/" "$nginx_conf_file"
 sudo nginx -t
 sudo systemctl reload nginx.service
 
 }
-
+remove_nginX(){
+  sudo systemctl stop nginx.service 2>/dev/null
+  sudo apt purge nginx bash-completion -y
+  sudo rm -rf /etc/nginx
+  sudo rm -rf /root/.acme.sh
+  sudo rm -rf /etc/letsencrypt
+  sudo ufw disable
+}
 
 
 fullInstallation(){
