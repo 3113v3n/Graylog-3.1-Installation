@@ -1,7 +1,7 @@
-#!/bin/bash 
+#!/bin/bash
 ######################################################################################################
 ### Author: Sidney Omondi
-### Version: v2.1.0
+### Version: v2.4.0
 ### Date: 2021-03-08
 ### Description:- It automates the installation and Uninstall process of graylog version 3.1 and 3.3
 ###               use debian version 9 for graylog 3.1 and version 10 for graylog 3.3
@@ -192,7 +192,7 @@ EOT
   echo
   sudo apt update
   sudo apt install graylog-server graylog-enterprise-plugins graylog-integrations-plugins graylog-enterprise-integrations-plugins
-  graylogConfig
+  setGraylogConfig
   verifyGraylog
  }
 
