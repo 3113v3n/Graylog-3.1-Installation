@@ -4,8 +4,10 @@ _This Repository contains scripts to help in **Automation** of graylog-3.1 insta
 
 #### graylog_install.sh
 
-This script aids in the installation of graylog 3.1 and graylog 3.3 on debian 9 and 10.
-It also performs system clean up incase you need to uninstall graylog.
+This script aids in the installation of graylog 3.1 and graylog 4.0 on debian 9 and 10.
+It also performs system clean up in case you need to uninstall graylog.
+graylog 3.1 is automatically installed on debian version 9 while 4.0 is installed on debian version 10
+
 [`graylog_install.sh`](https://github.com/3113v3n/Graylog-3.1-Installation/blob/main/graylog_install.sh)
 
     USAGE:

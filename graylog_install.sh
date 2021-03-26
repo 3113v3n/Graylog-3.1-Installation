@@ -246,7 +246,7 @@ hash_pass=$(echo -n ${PASS} | sha256sum  | awk -F' ' '{print $1}') || $(echo -n 
 
  read -p "[-] Enter your ${read_green_color}Machines Ip Address${read_normal_color} [Default: 127.0.0.1] " PRIVATE_IP
  read -p "[-] Enter your preferred ${read_green_color}PORT${read_normal_color} to run Graylog [Default: 9000 ] " DEF_PORT
- 
+
 #set up graylog port and IP
   if [[ -n "$DEF_PORT" ]]
   then
@@ -262,11 +262,12 @@ hash_pass=$(echo -n ${PASS} | sha256sum  | awk -F' ' '{print $1}') || $(echo -n 
  echo -e " Your username is ${Y}$USERNAME${RESET} and hash is ==> ${Y}${hash_pass}${RESET}"
  echo -e "Your Ip and Port is ${Y}${graylog_ip}:${graylog_port}${RESET}"
 ##EDITING THE CONFIGURATION FILE
-sed -i "/^password_secret =/ s/password_secret =/password_secret =$PASSWORD/ ; /^#root_username =/ s/#root_username = admin/root_username =$USERNAME/ ; /^root_password_sha2 =/ s/root_password_sha2 =/root_password_sha2 =$hash_pass/ ; /^#http_bind_address = 127.0.0.1:9000/ s/#http_bind_address = 127.0.0.1:9000/http_bind_address = ${graylog_ip}:${graylog_port}/" "$config_file_path"
+sed -i "/^password_secret =/ s/password_secret =/password_secret =$PASSWORD/ ; /^#root_username =/ s/#root_username = admin/root_username =$USERNAME/ ; /^root_password_sha2 =/ s/root_password_sha2 =/root_password_sha2 =$hash_pass/ ; /^#http_bind_address = 127.0.0.1:9000/ s/#http_bind_address = 127.0.0.1:9000/http_bind_address = ${graylog_ip}:${graylog_port}/ ; /^#http_publish_uri = http:\/\/192.168.1:9000\// s/#http_publish_uri = http:\/\/192.168.1:9000\//http_publish_uri = http:\/\/${graylog_ip}:${graylog_port}\//" "$config_file_path"
 
  }
  ## Reset Admin Password
  resetPassword(){
+   sudo systemctl stop graylog-server.service && sudo systemctl stop mongod.service && sudo systemctl stop elasticsearch.service
    local PASSWORD=$( pwgen -N 1 -s 96 )
 
    #path to graylog config file
@@ -306,7 +307,8 @@ sed -i "/^password_secret =/ s/password_secret =/password_secret =$PASSWORD/ ; /
    echo
   ##EDITING THE CONFIGURATION FILE
 sed -i "/^password_secret =/ s/password_secret =.*/password_secret =$PASSWORD/ ;  /^root_password_sha2 =/ s/root_password_sha2 =.*/root_password_sha2 =$hash_pass/" "$config_file_path"
-sudo systemctl restart graylog-server.service
+sudo systemctl start mongod.service  && sudo systemctl start elasticsearch.service  && sudo systemctl start graylog-server.service
+
  }
  function verifyGraylog(){
  ### verify its running
