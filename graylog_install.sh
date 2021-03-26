@@ -19,8 +19,6 @@ function main(){
 initialize_colors
 if [[ $EUID -eq 0 ]]
 then
- uinstall_bool=false
- update=false
  check $@
 else
 echo -e "${R}[!] You need to run script with ROOT privilages${RESET}"
@@ -29,7 +27,7 @@ fi
 
 function check(){
  local OPTIND opt i
- while getopts ":u:r:i:hC" opt; do #colon after i indicates an argument
+ while getopts ":u:r:i:hCR" opt; do #colon after i indicates an argument
    case $opt in
 
      i)
@@ -41,33 +39,38 @@ function check(){
       	  else
              animate_banner
             echo -e "${G}[+] *_____________________________Starting your installation___________________________________*${RESET}"
-              checkTerminalArg $deb_version  startInstall usage
+            checkTerminalArg $deb_version  startInstall usage
+
 
       	 fi
      ;;
      u)
-     uinstall_bool=true #boolean_to_check for unistall
+     #boolean_to_check for unistall
      deb_version="$OPTARG"
      #check if Argument passed is a number
-
      checkTerminalArg $deb_version unInstall usage
+
      ;;
      r)
-     reinstall=true
      deb_version="$OPTARG"
      checkTerminalArg $deb_version unInstall usage && startInstall
+
      ;;
      h) usage; exit 0
      ;;
      C) PerformCleanUp $working_directory; exit 0
      ;;
+     R) resetPassword; exit 0
+     ;;
      ?) usage; exit 1
+     ;;
+     :) usage; exit 1
      ;;
      esac
   done
   shift $(( OPTIND -1 ))
   #check if user has passed necessary arguments
-testArguments  $uinstall_bool $update usage $deb_version
+
 }
 if [[ -n "$deb_version" ]];then
 determine_graylog_version $deb_version
@@ -84,21 +87,28 @@ PARAMETRES:
 
 OPTIONS:
 ========
+
     -i    New Installation of GRAYLOG
     -r    Perform fresh Installation incase of a PreExisting INSTALLATION
     -u    To uninstall the program from your system
     -h    help
+    -C    Perform Cleanup and remove all Graylog installation files from host machine
+    -R    Incase of resetting Graylog Password
 
 EXAMPLE:
 =========
 
-${O}[+] Installation :${RESET}${G}sudo ./$(basename $0) -i [ 10 | 9 ]${RESET}
+${O}[+] Installation :${RESET}
+${G}sudo ./$(basename $0) -i [ 10 | 9 ]${RESET}
 
-${O}[+] Uninstall :${RESET}${G}sudo ./$(basename $0) -u [ 10 | 9 ]${RESET}
+${O}[+] Uninstall :${RESET}
+${G}sudo ./$(basename $0) -u [ 10 | 9 ]${RESET}
 
-${O}[+] Re-Installation: ${RESET}${G}sudo ./$(basename $0)  -r [ 10 | 9 ]${RESET}
+${O}[+] Re-Installation: ${RESET}
+${G}sudo ./$(basename $0)  -r [ 10 | 9 ]${RESET}
 
-
+${O}CleanUp or Resetting Password${RESET}
+${G}sudo ./$(basename $0) - [ C | R ]${RESET}
 "
 }
 
@@ -193,7 +203,7 @@ EOT
  setGraylogConfig(){
 
   #generates 64 character password
- PASSWORD=$( pwgen -N 1 -s 96 )
+ local PASSWORD=$( pwgen -N 1 -s 96 )
 
 
  echo
@@ -234,7 +244,7 @@ EOT
 hash_pass=$(echo -n ${PASS} | sha256sum  | awk -F' ' '{print $1}') || $(echo -n ${PASS} | shasum -a 256 | awk -F' ' '{print $1}')
 
 
- #read -p "[-] Enter your ${read_green_color}Public Ip Address${read_normal_color} [Default: 127.0.0.1] " PUB_IP
+ read -p "[-] Enter your ${read_green_color}Machines Ip Address${read_normal_color} [Default: 127.0.0.1] " PRIVATE_IP
  read -p "[-] Enter your preferred ${read_green_color}PORT${read_normal_color} to run Graylog [Default: 9000 ] " DEF_PORT
 
   if [[ -n "$DEF_PORT" ]]
@@ -249,6 +259,49 @@ hash_pass=$(echo -n ${PASS} | sha256sum  | awk -F' ' '{print $1}') || $(echo -n 
 ##EDITING THE CONFIGURATION FILE
 sed -i "/^password_secret =/ s/password_secret =/password_secret =$PASSWORD/ ; /^#root_username =/ s/#root_username = admin/root_username =$USERNAME/ ; /^root_password_sha2 =/ s/root_password_sha2 =/root_password_sha2 =$hash_pass/ ; /^#http_bind_address = 127.0.0.1:9000/ s/#http_bind_address = 127.0.0.1:9000/http_bind_address = ${graylog_ip}:${graylog_port}/" "$config_file_path"
 
+ }
+ ## Reset Admin Password
+ resetPassword(){
+   local PASSWORD=$( pwgen -N 1 -s 96 )
+
+   #path to graylog config file
+   echo
+  #Ensure username and Password are provided
+   while true; do
+
+
+     stty -echo #turns off echo on screen so that password is hidden
+     read -p "[-] Enter your New password?  ==> " NEW_PASS
+     echo
+     echo
+     read -p "[-] Confirm your New password?  ==> " CONFIRM_PASS
+     stty echo
+     if [[ -z "$NEW_PASS" && -z "$CONFIRM_PASS" ]]
+     then
+       echo
+       echo -e "${BRed}Password${RESET} cant be blank "
+       echo
+     elif [[  "$NEW_PASS" !=  "$CONFIRM_PASS" ]]
+     then
+       echo
+       echo -e "Passwords Dont Match "
+       echo
+     else
+       break
+
+     fi
+   done
+
+  # Convert password provided into hash password
+
+  hash_pass=$(echo -n ${NEW_PASS} | sha256sum  | awk -F' ' '{print $1}') || $(echo -n ${NEW_PASS} | shasum -a 256 | awk -F' ' '{print $1}')
+
+
+   sleep 0.2
+   echo
+  ##EDITING THE CONFIGURATION FILE
+sed -i "/^password_secret =/ s/password_secret =.*/password_secret =$PASSWORD/ ;  /^root_password_sha2 =/ s/root_password_sha2 =.*/root_password_sha2 =$hash_pass/" "$config_file_path"
+sudo systemctl restart graylog-server.service
  }
  function verifyGraylog(){
  ### verify its running

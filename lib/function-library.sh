@@ -55,7 +55,7 @@ determine_graylog_version(){
   then
    echo 3.1
   else
-   echo 3.3
+   echo 4.0 #3.3
   fi
 }
 #Successfull update of configs

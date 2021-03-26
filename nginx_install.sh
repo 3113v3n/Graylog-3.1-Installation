@@ -63,7 +63,7 @@ function checkTags(){
    ;;
 C) PerformCleanUp $working_directory
   ;;
-:) echo "missing argument for option -${OPTARG}"
+:) usage
   exit 1
   ;;
  h) usage
@@ -86,14 +86,19 @@ PARAMETRES:
 
 OPTIONS:
 ========
-    -h    help
-    -d    Pass in the Domain of your organization
-    -e    Pass in email that will be used to setup your graylog account
+
+    -h              help
+    -d [Required]   Pass in the Domain of your organization
+    -e [Required]   Pass in email that will be used to setup your graylog account
+    -C              Perform Cleanup and remove all Graylog installation files from host machine
+    -u              Removes Nginx Installation
 
 EXAMPLE:
 =========
 
 ${O}[-] source ./$(basename $0).sh -d testdomain.co.ke -e info@testmail.com${RESET}
+
+${O}[-] source ./$(basename $0).sh -[ u | h | C ] ${RESET}
 "
 }
 installNginX(){
