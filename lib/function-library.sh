@@ -72,7 +72,7 @@ echo
 
 #check for Installation Errors
 check_for_errors(){
-  if [[ "$#" -ne 3 ]]
+  if [[ "$#" -ne 4 ]]
   then
     echo "Invalid Number of arguments"
     exit 1
