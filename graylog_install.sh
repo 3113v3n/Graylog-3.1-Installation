@@ -246,10 +246,15 @@ hash_pass=$(echo -n ${PASS} | sha256sum  | awk -F' ' '{print $1}') || $(echo -n 
 
  read -p "[-] Enter your ${read_green_color}Machines Ip Address${read_normal_color} [Default: 127.0.0.1] " PRIVATE_IP
  read -p "[-] Enter your preferred ${read_green_color}PORT${read_normal_color} to run Graylog [Default: 9000 ] " DEF_PORT
-
+ 
+#set up graylog port and IP
   if [[ -n "$DEF_PORT" ]]
   then
     graylog_port=$DEF_PORT
+  fi
+
+  if [[ -n "$PRIVATE_IP" ]];then
+  graylog_ip=$PRIVATE_IP
   fi
 
  sleep 0.2
